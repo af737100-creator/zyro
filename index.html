@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zyro - جدولة المحتوى</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 10px; max-width: 400px; margin: auto; }
+        input, button, textarea { width: 100%; margin-top: 10px; padding: 10px; border-radius: 5px; border: none; }
+        button { background: #3ecf8e; color: black; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>جدولة منشور جديد</h2>
+        <input type="file" id="videoFile" accept="video/*">
+        <textarea id="contentText" placeholder="ماذا تريد أن تكتب مع الفيديو؟"></textarea>
+        <label>اختر وقت النشر:</label>
+        <input type="datetime-local" id="publishTime">
+        <select id="platform">
+            <option value="youtube">YouTube</option>
+            <option value="facebook">Facebook</option>
+            <option value="telegram">Telegram</option>
+        </select>
+        <button onclick="uploadAndSchedule()">جدولة المنشور الآن</button>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        // هنا سنضع مفاتيح Supabase التي أرسلتها لي في الخطوة القادمة
+        const SUPABASE_URL = 'https://jdtgyqyrmpaqehlxazhl.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_...'; // سنضع المفتاح هنا
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function uploadAndSchedule() {
+            const file = document.getElementById('videoFile').files[0];
+            const text = document.getElementById('contentText').value;
+            const time = document.getElementById('publishTime').value;
+            const platform = document.getElementById('platform').value;
+            const status = document.getElementById('status');
+
+            if(!file || !time) { alert("يرجى اختيار ملف ووقت!"); return; }
+
+            status.innerText = "جاري رفع الفيديو...";
+            
+            // 1. رفع الفيديو للمخزن (Storage)
+            const fileName = `${Date.now()}_${file.name}`;
+            const { data, error } = await supabase.storage.from('videos').upload(fileName, file);
+
+            if (error) { status.innerText = "خطأ في الرفع: " + error.message; return; }
+
+            // 2. حفظ البيانات في الجدول (Database)
+            const { error: dbError } = await supabase.from('scheduled_posts').insert([
+                { 
+                    content_text: text, 
+                    media_url: fileName, 
+                    scheduled_for: time, 
+                    platform: platform 
+                }
+            ]);
+
+            if (dbError) { status.innerText = "خطأ في الجدولة: " + dbError.message; }
+            else { status.innerText = "✅ تم جدولة المنشور بنجاح!"; }
+        }
+    </script>
+</body>
+</html>
